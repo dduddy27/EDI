@@ -1,0 +1,579 @@
+<?xml version = '1.0' encoding = 'UTF-8'?>
+<dataTemplate name="ams" description="AMS Filing Details" defaultPackage="AMS_SELECT" version="1.0">
+<!-- USES PACKAGE AMS_SELECT WITH FUNCTION TO RETREIVE SHIPMENT ID FROM CUSTOMS ID -->
+   <properties>
+      <property name="xml_tag_case" value="upper"/>
+   </properties>
+
+   <parameters>
+	  <!-- <parameter name="P_GTM_SHIPMENT_ID" dataType="varchar" defaultValue="SCOULAR/NVO.20140731-00000040"/> -->
+	  <parameter name="P_GTM_CUSTOMS_ID" dataType="varchar" defaultValue="SCOULAR/NVO.20140731-00000041"/>
+
+	 <!-- <parameter name="P_GTM_SHIPMENT_ID" dataType="varchar" defaultvalue="SCOULAR/BCO.AES_SHIPMENT_RAIL_S5"/> -->
+	  <parameter name="P_DOCUMENT_DEF_GID" dataType="varchar" defaultValue="AMS_FILING"/>	  
+	  
+	  <parameter name="P_TRANSMITTER_ID" dataType="varchar" defaultValue="          "/>
+	  <parameter name="P_COMMUNICATION_PASSWORD_ID" dataType="varchar" defaultValue="          "/>	  
+	  <parameter name="P_FILER_ID" dataType="varchar" defaultValue="TSFE"/>
+	  <parameter name="P_IS_PRODUCTION" dataType="varchar" defaultValue="N"/>
+	  
+	  <parameter name="P_REPORTING_QUANTITY" dataType="varchar" defaultValue="ORDERED"/>
+	  <parameter name="P_REPORTING_CURRENCY" dataType="varchar" defaultValue="TOTAL VALUE"/>
+	  <parameter name="P_REPORTING_REFERENCE_NUMBER" dataType="varchar" defaultValue="BN"/>
+	  <parameter name="P_REPORTING_FOREIGN_ENTITY" dataType="varchar" defaultValue="entity"/>	  
+	  <parameter name="P_REPORTING_TIMEZONE" dataType="varchar" defaultValue="America/Chicago"/>
+	  <parameter name="P_CURRENT_TIME" defaultValue="0800" dataType="varchar"/>
+	  <parameter name="P_CONTACT_NAME" defaultValue="Mairi Badon" dataType="varchar"/>
+	  <parameter name="P_CONTACT_EMAIL" defaultValue="mbadon@scoular.com" dataType="varchar"/>
+	 <!-- <parameter name="P_OBJECT_NAME" dataType="varchar" defaultValue="SCOULAR/NVO.01924"/> -->
+	  </parameters>
+   
+   <lexicals/>
+   
+   <dataQuery>
+    	  
+      <sqlStatement name="GTM_TRANSACTION_SRC">
+         <![CDATA[SELECT GTM_TRANSACTION.GTM_TRANSACTION_GID GTM_TRANSACTION_GID, GTM_TRANSACTION_XID, DATA_QUERY_TYPE_GID, OBJECT_ID,
+					CARRIER_CODE, CONVEYANCE_NAME, CONVEYANCE_FLAG, GTM_TRANSACTION.TRANSPORT_MODE_GID TRANSPORT_MODE_GID, X12_FORMAT_CODE,
+					INCO_TERM_GID,  INCO_TERM_LOCATION,  IS_HAZARDOUS_CARGO,
+					(SELECT STATUS_VALUE_XID
+					FROM GLOGOWNER.GTM_TRANS_REQD_STATUS, GLOGOWNER.STATUS_VALUE, GLOGOWNER.STATUS_TYPE
+					WHERE GTM_TRANS_REQD_STATUS.GTM_TRANSACTION_GID = GTM_TRANSACTION.GTM_TRANSACTION_GID
+					AND GTM_TRANS_REQD_STATUS.STATUS_TYPE_GID = STATUS_VALUE.STATUS_TYPE_GID
+					AND GTM_TRANS_REQD_STATUS.STATUS_VALUE_GID = STATUS_VALUE.STATUS_VALUE_GID
+					AND STATUS_VALUE.STATUS_TYPE_GID = STATUS_TYPE.STATUS_TYPE_GID
+					AND DOCUMENT_DEF_GID = :P_DOCUMENT_DEF_GID
+					AND STATUS_TYPE_XID = 'SHIPMENT_CUSTOMS_STATE') AS SHIPMENT_CUSTOMS_STATE,
+					(SELECT STATUS_VALUE_XID
+					FROM GLOGOWNER.GTM_TRANS_REQD_STATUS, GLOGOWNER.STATUS_VALUE, GLOGOWNER.STATUS_TYPE
+					WHERE GTM_TRANS_REQD_STATUS.GTM_TRANSACTION_GID = GTM_TRANSACTION.GTM_TRANSACTION_GID
+					AND GTM_TRANS_REQD_STATUS.STATUS_TYPE_GID = STATUS_VALUE.STATUS_TYPE_GID
+					AND GTM_TRANS_REQD_STATUS.STATUS_VALUE_GID = STATUS_VALUE.STATUS_VALUE_GID
+					AND STATUS_VALUE.STATUS_TYPE_GID = STATUS_TYPE.STATUS_TYPE_GID
+					AND DOCUMENT_DEF_GID = :P_DOCUMENT_DEF_GID
+					AND STATUS_TYPE_XID = 'CUSTOMS_FILING') AS CUSTOMS_FILING_STATUS,
+					(SELECT TO_CHAR(SYSDATE,'YYYYMMDDHHMM') FROM DUAL) as INTERCHANGE_DATE ,
+					(SELECT REFNUM_VALUE FROM GLOGOWNER.GTM_TRANS_REFNUM GTR
+					WHERE GTR.GTM_TRANSACTION_GID = GTM_TRANSACTION.GTM_TRANSACTION_GID
+					AND GTM_TRANS_REFNUM_QUAL_GID = :P_REPORTING_REFERENCE_NUMBER) REPORTING_REFERENCE_NUMBER
+					FROM GLOGOWNER.GTM_TRANSACTION LEFT OUTER JOIN GLOGOWNER.TRANSPORT_MODE ON (GTM_TRANSACTION.TRANSPORT_MODE_GID = TRANSPORT_MODE.TRANSPORT_MODE_GID)
+					WHERE GTM_TRANSACTION.GTM_TRANSACTION_GID = :P_GTM_CUSTOMS_ID
+]]>
+     </sqlStatement>
+  
+     <sqlStatement name="GTM_TRANSACTION_INVOLVED_PARTY_SRC">
+         <![CDATA[SELECT GTIP.INVOLVED_PARTY_QUAL_GID INVOLVED_PARTY_QUAL_GID, INVOLVED_PARTY_CONTACT_GID, CONTACT_XID,
+				FIRST_NAME, LAST_NAME, PHONE1, PHONE2, FAX, MIDDLE_NAME, CELL_PHONE, ALTERNATE_NAME, COMPANY_NAME,
+				LOCATION.LOCATION_GID LOCATION_GID, LOCATION_XID, LOCATION_NAME, CITY, PROVINCE, PROVINCE_CODE, POSTAL_CODE, 
+				LOCATION.COUNTRY_CODE3_GID COUNTRY_CODE3_GID, COUNTRY_CODE3_XID, COUNTRY_CODE2, null as SCAC_GID,
+				(SELECT  REFNUM_VALUE FROM GLOGOWNER.GTM_PARTY_REFNUM GPR1 WHERE GPR1.CONTACT_GID = GTIP.INVOLVED_PARTY_CONTACT_GID
+				AND GPR1.GTM_PARTY_REFNUM_QUAL_GID = 'DDTC REGISTRATION NUMBER') AS DDTC_REGISTRATION_NUMBER,
+				(SELECT  REMARK_TEXT FROM GLOGOWNER.GTM_PARTY_REMARK GPR2 WHERE GPR2.CONTACT_GID = GTIP.INVOLVED_PARTY_CONTACT_GID
+				AND GPR2.REMARK_QUAL_GID = 'ELIGIBLE PARTY CERTIFICATION') AS ELIGIBLE_PARTY_CERTIFICATION,
+				(SELECT  REFNUM_VALUE FROM GLOGOWNER.GTM_PARTY_REFNUM GPR3 WHERE GPR3.CONTACT_GID = GTIP.INVOLVED_PARTY_CONTACT_GID
+				AND GPR3.GTM_PARTY_REFNUM_QUAL_GID = 'ACID') AS ACID,
+				(SELECT REFNUM_VALUE FROM GLOGOWNER.GTM_PARTY_REFNUM
+			 			WHERE GTM_PARTY_REFNUM_QUAL_GID ='EIN' 
+			 			AND CONTACT_GID = CONTACT.CONTACT_GID) EIN, 
+				(SELECT REFNUM_VALUE FROM GLOGOWNER.GTM_PARTY_REFNUM
+			 			WHERE GTM_PARTY_REFNUM_QUAL_GID ='DUNS' 
+			 			AND CONTACT_GID = CONTACT.CONTACT_GID) DUNS, 
+				(SELECT REFNUM_VALUE FROM GLOGOWNER.GTM_PARTY_REFNUM
+			 			WHERE GTM_PARTY_REFNUM_QUAL_GID = :P_REPORTING_FOREIGN_ENTITY
+			 			AND CONTACT_GID = CONTACT.CONTACT_GID) FOREIGN_ENTITY,
+				(SELECT GTM_CODE FROM GLOGOWNER.GTM_PARTY_CODE
+						WHERE GTM_TYPE_GID ='CONSIGNEE TYPE' 
+						AND CONTACT_GID = CONTACT.CONTACT_GID) UTLIMATE_CONSIGNEE_TYPE,
+            LA1.ADDRESS_LINE AS ADDLINE1,LA2.ADDRESS_LINE AS ADDLINE2
+	FROM GLOGOWNER.GTM_TRANSACTION_INVOLVED_PARTY GTIP, 
+		  GLOGOWNER.CONTACT LEFT OUTER JOIN GLOGOWNER.LOCATION ON (CONTACT.LOCATION_GID = LOCATION.LOCATION_GID) 
+		  LEFT OUTER JOIN GLOGOWNER.COUNTRY_CODE ON (LOCATION.COUNTRY_CODE3_GID = COUNTRY_CODE.COUNTRY_CODE3_GID)
+		LEFT OUTER JOIN LOCATION_ADDRESS LA1 ON (LA1.LOCATION_GID=LOCATION.LOCATION_GID AND LA1.LINE_SEQUENCE='1')
+		LEFT OUTER JOIN LOCATION_ADDRESS LA2 ON (LA2.LOCATION_GID=LOCATION.LOCATION_GID AND LA2.LINE_SEQUENCE='2')
+	WHERE GTIP.INVOLVED_PARTY_CONTACT_GID = CONTACT.CONTACT_GID
+	AND  GTIP.INVOLVED_PARTY_QUAL_GID IN ('CONSIGNEE', 'FORWARDING AGENT', 'INTERMEDIATE CONSIGNEE', 'USPPI')
+	AND GTIP.GTM_TRANSACTION_GID = :P_GTM_CUSTOMS_ID
+	AND ROWNUM <= 10
+	UNION
+	SELECT GTIP.INVOLVED_PARTY_QUAL_GID INVOLVED_PARTY_QUAL_GID, INVOLVED_PARTY_CONTACT_GID, CONTACT_XID,
+			FIRST_NAME, LAST_NAME, PHONE1, PHONE2, FAX, MIDDLE_NAME, CELL_PHONE, ALTERNATE_NAME, COMPANY_NAME,
+			LOCATION.LOCATION_GID LOCATION_GID, LOCATION_XID, LOCATION_NAME, CITY, PROVINCE, PROVINCE_CODE, POSTAL_CODE, 
+			LOCATION.COUNTRY_CODE3_GID COUNTRY_CODE3_GID, COUNTRY_CODE3_XID, COUNTRY_CODE2,  null, null, null, null, null, null,null,null,null,null
+	FROM GLOGOWNER.GTM_TRANSACTION_INVOLVED_PARTY GTIP, 
+		  GLOGOWNER.CONTACT LEFT OUTER JOIN GLOGOWNER.LOCATION ON (CONTACT.LOCATION_GID = LOCATION.LOCATION_GID) 
+		  LEFT OUTER JOIN GLOGOWNER.COUNTRY_CODE ON (LOCATION.COUNTRY_CODE3_GID = COUNTRY_CODE.COUNTRY_CODE3_GID)
+	WHERE GTIP.INVOLVED_PARTY_CONTACT_GID = CONTACT.CONTACT_GID
+	AND  GTIP.INVOLVED_PARTY_QUAL_GID = 'SHIP_FROM'
+	AND GTIP.GTM_TRANSACTION_GID = :P_GTM_CUSTOMS_ID
+	UNION
+	SELECT GTIP.INVOLVED_PARTY_QUAL_GID INVOLVED_PARTY_QUAL_GID, INVOLVED_PARTY_CONTACT_GID, CONTACT_XID,
+			FIRST_NAME, LAST_NAME, PHONE1, PHONE2, FAX, MIDDLE_NAME, CELL_PHONE, ALTERNATE_NAME, COMPANY_NAME,
+			LOCATION.LOCATION_GID LOCATION_GID, LOCATION_XID, LOCATION_NAME, CITY, PROVINCE, PROVINCE_CODE, POSTAL_CODE, 
+			LOCATION.COUNTRY_CODE3_GID COUNTRY_CODE3_GID, COUNTRY_CODE3_XID, COUNTRY_CODE2,SERVPROV.SCAC_GID SCAC_GID, null, null, null, null, null,null,null,null,null
+	FROM GLOGOWNER.GTM_TRANSACTION_INVOLVED_PARTY GTIP, 
+		  GLOGOWNER.CONTACT LEFT OUTER JOIN GLOGOWNER.LOCATION ON (CONTACT.LOCATION_GID = LOCATION.LOCATION_GID) 
+							LEFT OUTER JOIN GLOGOWNER.COUNTRY_CODE ON (LOCATION.COUNTRY_CODE3_GID = COUNTRY_CODE.COUNTRY_CODE3_GID)
+							LEFT OUTER JOIN GLOGOWNER.SERVPROV ON (CONTACT.CONTACT_GID = SERVPROV.SERVPROV_GID)
+	WHERE GTIP.INVOLVED_PARTY_CONTACT_GID = CONTACT.CONTACT_GID
+	AND  GTIP.INVOLVED_PARTY_QUAL_GID = 'CARRIER'
+	AND GTIP.GTM_TRANSACTION_GID = :P_GTM_CUSTOMS_ID
+	UNION
+	SELECT GTIP.INVOLVED_PARTY_QUAL_GID INVOLVED_PARTY_QUAL_GID, INVOLVED_PARTY_CONTACT_GID, CONTACT_XID,
+			FIRST_NAME, LAST_NAME, PHONE1, PHONE2, FAX, MIDDLE_NAME, CELL_PHONE, ALTERNATE_NAME, COMPANY_NAME,
+			LOCATION.LOCATION_GID LOCATION_GID, LOCATION_XID, LOCATION_NAME, CITY, PROVINCE, PROVINCE_CODE, POSTAL_CODE, 
+			LOCATION.COUNTRY_CODE3_GID COUNTRY_CODE3_GID, COUNTRY_CODE3_XID, COUNTRY_CODE2,SERVPROV.SCAC_GID SCAC_GID, null, null, null, null, null,null,null,LA1.ADDRESS_LINE AS ADDLINE1,LA2.ADDRESS_LINE AS ADDLINE2
+	FROM GLOGOWNER.GTM_TRANSACTION_INVOLVED_PARTY GTIP, 
+		  GLOGOWNER.CONTACT LEFT OUTER JOIN GLOGOWNER.LOCATION ON (CONTACT.LOCATION_GID = LOCATION.LOCATION_GID) 
+							LEFT OUTER JOIN GLOGOWNER.COUNTRY_CODE ON (LOCATION.COUNTRY_CODE3_GID = COUNTRY_CODE.COUNTRY_CODE3_GID)
+							LEFT OUTER JOIN GLOGOWNER.SERVPROV ON (CONTACT.CONTACT_GID = SERVPROV.SERVPROV_GID)
+				LEFT OUTER JOIN LOCATION_ADDRESS LA1 ON (LA1.LOCATION_GID=LOCATION.LOCATION_GID AND LA1.LINE_SEQUENCE='1')
+				LEFT OUTER JOIN LOCATION_ADDRESS LA2 ON (LA2.LOCATION_GID=LOCATION.LOCATION_GID AND LA2.LINE_SEQUENCE='2')
+	WHERE GTIP.INVOLVED_PARTY_CONTACT_GID = CONTACT.CONTACT_GID
+	AND  GTIP.INVOLVED_PARTY_QUAL_GID = 'SHIPPER'
+	AND GTIP.GTM_TRANSACTION_GID = :P_GTM_CUSTOMS_ID
+]]>
+ 
+      </sqlStatement>
+	  
+	  
+	   <sqlStatement name="GTM_TRANS_REFNUM_SRC">
+         <![CDATA[select gtm_trans_refnum_qual_gid,refnum_value
+       from gtm_trans_refnum
+       where gtm_transaction_gid=&selectgtmid
+       
+          
+]]> 
+      </sqlStatement> 
+	  
+	  
+	  <sqlStatement name="OTM_LOCATION_SRC">
+         <![CDATA[SELECT LOCATION_REFNUM_VALUE AS SCHEDULE_D_CODE,
+				(SELECT LOCATION_REFNUM_VALUE FROM LOCATION_REFNUM, LOCATION_REFNUM_QUAL
+				WHERE LOCATION_REFNUM.LOCATION_REFNUM_QUAL_GID = LOCATION_REFNUM_QUAL.LOCATION_REFNUM_QUAL_GID
+				AND LOCATION_REFNUM.LOCATION_GID = (SELECT PORT_OF_LOAD_LOCATION_GID from shipment
+				where SHIPMENT_GID=(SELECT shipment_gid from shipment 
+				where shipment_gid =(select object_id from gtm_transaction 
+				where gtm_transaction_gid=(select gtm_transaction_gid from gtm_transaction_line 
+				where gtm_transaction_line_gid=(select preceding_transaction_line_gid from gtm_transaction_line 
+				where gtm_transaction_gid=:P_GTM_CUSTOMS_ID AND ROWNUM=1))))
+				AND LOCATION_REFNUM_QUAL.LOCATION_REFNUM_QUAL_XID = 'SCHEDULE_K')) SCHEDULE_K_CODE
+                FROM LOCATION_REFNUM, LOCATION_REFNUM_QUAL
+				WHERE LOCATION_REFNUM.LOCATION_REFNUM_QUAL_GID = LOCATION_REFNUM_QUAL.LOCATION_REFNUM_QUAL_GID
+				AND LOCATION_REFNUM.LOCATION_GID = (SELECT dest_location_gid from shipment where shipment_gid =
+				&selectshipid)
+				AND LOCATION_REFNUM_QUAL.LOCATION_REFNUM_QUAL_XID = 'SCHEDULE_D'         
+]]>
+      </sqlStatement>   
+	  
+	  <sqlStatement name="OTM_SHIPMENT_SRC">
+         <![CDATA[ select SHIPMENT_REFNUM_QUAL_GID,SHIPMENT_REFNUM_VALUE
+					from SHIPMENT_REFNUM
+					&shipwhereclause          
+]]> 
+      </sqlStatement>
+
+ <sqlStatement name="OTM_CONTROL_SRC">
+         <![CDATA[select AMS_INT_CONTROL.NEXTVAL as INTNUM,AMS_TRAN_CONTROL.NEXTVAL AS TRANNUM
+		 FROM DUAL	          
+]]> 
+      </sqlStatement>  	  
+	  
+<!--	  <sqlStatement name="OTM_SHIPMENT_SRC">
+         <![CDATA[select SCAC_GID
+			FROM SERVPROV SVP 
+			WHERE SVP.SERVPROV_GID=(SELECT SERVPROV_GID FROM SHIPMENT
+			where SHIPMENT_GID=(SELECT shipment_gid from shipment 
+			where shipment_gid =(select object_id from gtm_transaction
+			where gtm_transaction_gid=(select gtm_transaction_gid from gtm_transaction_line
+			where gtm_transaction_line_gid=(select preceding_transaction_line_gid from gtm_transaction_line
+			where gtm_transaction_gid=:P_GTM_CUSTOMS_ID and rownum=1)))))
+          
+]]> 
+      </sqlStatement>  -->
+	  
+	   <sqlStatement name="OTM_SHIPMENT_REFNUM_SRC">
+         <![CDATA[ select SHIPMENT_REFNUM_QUAL_GID,SHIPMENT_REFNUM_VALUE
+			from SHIPMENT_REFNUM
+			 where SHIPMENT_GID=(SELECT shipment_gid from shipment 
+			 where shipment_gid =(select object_id from gtm_transaction
+			 where gtm_transaction_gid=(select gtm_transaction_gid from gtm_transaction_line
+			 where gtm_transaction_line_gid=(select preceding_transaction_line_gid from gtm_transaction_line
+			 where gtm_transaction_gid=:P_GTM_CUSTOMS_ID and rownum=1))))
+          
+]]> 
+      </sqlStatement> 
+	  
+	  <sqlStatement name="OTM_LOCATION_REFNUM_SRC">
+         <![CDATA[ SELECT LOCATION_REFNUM_VALUE FROM LOCATION_REFNUM
+		 WHERE LOCATION_GID=(SELECT INVOLVED_PARTY_CONTACT_GID
+		 FROM SHIPMENT_INVOLVED_PARTY SIP
+		 where SIP.SHIPMENT_GID=(SELECT shipment_gid from shipment 
+		 where shipment_gid =(select object_id from gtm_transaction
+		 where gtm_transaction_gid=(select gtm_transaction_gid from gtm_transaction_line
+		 where gtm_transaction_line_gid=(select preceding_transaction_line_gid from gtm_transaction_line
+		 where gtm_transaction_gid=:P_GTM_CUSTOMS_ID and rownum=1)))) AND INVOLVED_PARTY_QUAL_GID='SCOULAR.ALSO.NOTIFY') AND LOCATION_REFNUM_QUAL_GID='SCOULAR.FIRMS'
+         
+]]> 
+      </sqlStatement> 
+	  
+	  <sqlStatement name="OTM_JOB_SRC">
+         <![CDATA[  select JOB_XID,ATTRIBUTE5
+			from JOB
+			WHERE JOB_GID=(SELECT SHIPMENT_REFNUM_VALUE from  SHIPMENT_REFNUM
+			where shipment_gid =(select object_id from gtm_transaction
+			where gtm_transaction_gid=(select gtm_transaction_gid from gtm_transaction_line
+			where gtm_transaction_line_gid=(select preceding_transaction_line_gid from gtm_transaction_line
+			where gtm_transaction_gid=:P_GTM_CUSTOMS_ID and rownum=1))) AND SHIPMENT_REFNUM_QUAL_GID='SCOULAR.JOB_ID')        
+                    
+]]> 
+      </sqlStatement> 
+	  
+	  <sqlStatement name="OTM_JOB_REFNUM_SRC">
+         <![CDATA[select JOB_REFNUM_QUAL_GID,JOB_REFNUM_VALUE
+			from JOB_REFNUM JR
+			WHERE JR.JOB_GID=(SELECT JOB_GID FROM JOB 
+			WHERE JOB_XID=(SELECT SHIPMENT_REFNUM_VALUE from  SHIPMENT_REFNUM
+			where shipment_gid =(select object_id from gtm_transaction
+			where gtm_transaction_gid=(select gtm_transaction_gid from gtm_transaction_line
+			where gtm_transaction_line_gid=(select preceding_transaction_line_gid from gtm_transaction_line
+			where gtm_transaction_gid=:P_GTM_CUSTOMS_ID and rownum=1))) AND SHIPMENT_REFNUM_QUAL_GID='SCOULAR.JOB_ID'))       
+                    
+]]> 
+      </sqlStatement> 
+	  	  
+	   <sqlStatement name="GTM_CHARTER_VOYAGE_SRC">
+         <![CDATA[SELECT CHARTER_VOYAGE.VOYAGE_NAME,TO_CHAR(CHARTER_VOYAGE.ESTIMATED_ARRIVAL_DATE,'YYYYMMDD') AS ESTIMATED_ARRIVAL_DATE
+			FROM CHARTER_VOYAGE
+			LEFT OUTER JOIN GTM_TRANS_REFNUM ON CHARTER_VOYAGE_XID=REFNUM_VALUE 
+			WHERE GTM_TRANSACTION_GID=:P_GTM_CUSTOMS_ID AND CHARTER_VOYAGE_TYPE='CHARTERED'
+]]>
+		</sqlStatement>
+		
+		
+		<sqlStatement name="GTM_TRANSACTION_DATE_SRC">
+         <![CDATA[SELECT TO_CHAR(TRANSACTION_DATE,'YYYYMMDD') AS ESTIMATED_ARRIVAL_DATE
+			FROM GTM_TRANSACTION_DATE
+			WHERE GTM_TRANSACTION_GID=: AND DATE_QUALIFIER_GID='SCHEDULED_ARRIVAL_DATE'
+]]>
+		</sqlStatement>	
+		<sqlStatement name="GTM_CHARTER_VOYAGE_REFNUM_SRC">
+         <![CDATA[Select CVR.CHARTER_VOYAGE_REFNUM_VALUE
+			from gtm_trans_refnum 
+			JOIN CHARTER_VOYAGE CV ON REFNUM_VALUE=CHARTER_VOYAGE_XID
+			JOIN CHARTER_VOYAGE_REFNUM CVR ON CVR.CHARTER_VOYAGE_GID=CV.CHARTER_VOYAGE_GID 
+			where gtm_transaction_gid=:P_GTM_CUSTOMS_ID AND GTM_TRANS_REFNUM_QUAL_GID='CHARTER VOYAGE' 
+			AND CHARTER_VOYAGE_REFNUM_QUAL_GID='SCOULAR.CHARVOY_VOYAGE_NUMBER'     
+]]>	
+	</sqlStatement>
+	<sqlStatement name="GTM_CUSTOMS_REFNUM_SRC">
+         <![CDATA[select REFNUM_VALUE,GTM_TRANS_REFNUM_QUAL_GID
+			from gtm_trans_refnum 
+			where gtm_transaction_gid=:P_GTM_CUSTOMS_ID 
+]]>	
+	</sqlStatement>
+	
+	<sqlStatement name="GTM_LOCATION_REFNUM_SRC">
+         <![CDATA[select LOCATION_REFNUM_QUAL_GID,LOCATION_REFNUM_VALUE 
+			from LOCATION_REFNUM  
+			where LOCATION_GID=(SELECT LOCATION_GID FROM LOCATION WHERE LOCATION_XID=(select REFNUM_VALUE from gtm_trans_refnum
+			where gtm_transaction_gid=:P_GTM_CUSTOMS_ID AND GTM_TRANS_REFNUM_QUAL_GID='SCOULAR/NVO.VIA_LOCATION_ID' )) 
+]]>	
+	</sqlStatement>
+	<sqlStatement name="GTM_MANIFEST_TYPE_CODE_SRC">
+         <![CDATA[Select 'W' as MANIFEST_TYPE_CODE
+			FROM GTM_CATEGORY
+			WHERE GTM_CATEGORY_GID='AMS FILING'			 
+]]>	
+	</sqlStatement>
+	
+	<sqlStatement name="GTM_TRANSACTION_QUANTITY_SRC">
+         <![CDATA[Select GTM_QUANTITY_TYPE_GID,QUANTITY_VALUE,UOM_CODE
+			from GTM_TRANSACTION_QUANTITY
+			where GTM_QUANTITY_TYPE_GID IN('TOTAL SHIP UNIT COUNT','TOTAL GROSS WEIGHT','TOTAL GROSS VOLUME') 
+			AND GTM_TRANSACTION_GID=:P_GTM_CUSTOMS_ID		 
+]]>	
+	</sqlStatement>
+	
+	<sqlStatement name="GTM_TRANSACTION_PORT_SRC">
+         <![CDATA[Select LOCATION_REFNUM_VALUE,LOCATION_REFNUM_QUAL_GID
+			FROM location_refnum
+			WHERE location_gid=(SELECT gtm_transaction_port.location_gid FROM GTM_TRANSACTION_PORT where GTM_PORT_QUALIFIER_GID IN('PORT OF EXPORT') 
+			AND GTM_TRANSACTION_GID=:P_GTM_CUSTOMS_ID)  
+]]>	
+	</sqlStatement>
+	
+	<sqlStatement name="GTM_TRANSACTION_REMARK_SRC">
+         <![CDATA[SELECT REMARK_TEXT
+		FROM GTM_TRANSACTION_REMARK
+		WHERE GTM_TRANSACTION_GID=:P_GTM_CUSTOMS_ID AND REMARK_QUAL_GID='SCOULAR.FILING.UOM'			 
+]]>	
+	</sqlStatement>
+	
+	<sqlStatement name="QUOTE_REFNUM_SRC">
+         <![CDATA[select QUOTE_REFNUM_VALUE from QUOTE_REFNUM QR WHERE QR.QUOTE_GID=
+			(SELECT RO.QUOTE_GID
+			FROM ORDER_RELEASE RO WHERE RO.ORDER_RELEASE_GID=(SELECT ORDER_RELEASE_GID
+			from VIEW_SHIPMENT_ORDER_RELEASE
+			WHERE SHIPMENT_GID=(SELECT shipment_gid from shipment 
+			where shipment_gid =(select object_id from gtm_transaction
+			where gtm_transaction_gid=(select gtm_transaction_gid from gtm_transaction_line
+			where gtm_transaction_line_gid=(select preceding_transaction_line_gid from gtm_transaction_line
+			where gtm_transaction_gid=:P_GTM_CUSTOMS_ID and rownum=1)))) and rownum=1)) AND QUOTE_REFNUM_QUAL_GID='SCOULAR.PLACE OF RECEIPT'		 
+]]>	
+	</sqlStatement>
+	
+	<sqlStatement name="GTM_N1_GROUP_SRC">
+         <![CDATA[SELECT GTIP.INVOLVED_PARTY_QUAL_GID INVOLVED_PARTY_QUAL_GID, INVOLVED_PARTY_CONTACT_GID, CONTACT_XID,
+			FIRST_NAME, LAST_NAME, PHONE1, PHONE2, FAX, MIDDLE_NAME, CELL_PHONE, ALTERNATE_NAME, COMPANY_NAME,
+			LOCATION.LOCATION_GID LOCATION_GID, LOCATION_XID, LOCATION_NAME, CITY, PROVINCE, PROVINCE_CODE, POSTAL_CODE, 
+			LOCATION.COUNTRY_CODE3_GID COUNTRY_CODE3_GID, COUNTRY_CODE3_XID, COUNTRY_CODE2,SERVPROV.SCAC_GID SCAC_GID, null, null, null, null, null,null,null,LA1.ADDRESS_LINE AS ADDLINE1,LA2.ADDRESS_LINE AS ADDLINE2
+			FROM GLOGOWNER.GTM_TRANSACTION_INVOLVED_PARTY GTIP, 
+			GLOGOWNER.CONTACT LEFT OUTER JOIN GLOGOWNER.LOCATION ON (CONTACT.LOCATION_GID = LOCATION.LOCATION_GID) 
+							LEFT OUTER JOIN GLOGOWNER.COUNTRY_CODE ON (LOCATION.COUNTRY_CODE3_GID = COUNTRY_CODE.COUNTRY_CODE3_GID)
+							LEFT OUTER JOIN GLOGOWNER.SERVPROV ON (CONTACT.CONTACT_GID = SERVPROV.SERVPROV_GID)
+							LEFT OUTER JOIN LOCATION_ADDRESS LA1 ON (LA1.LOCATION_GID=LOCATION.LOCATION_GID AND LA1.LINE_SEQUENCE='1')
+							LEFT OUTER JOIN LOCATION_ADDRESS LA2 ON (LA2.LOCATION_GID=LOCATION.LOCATION_GID AND LA2.LINE_SEQUENCE='2')
+		WHERE GTIP.INVOLVED_PARTY_CONTACT_GID = CONTACT.CONTACT_GID
+		AND  GTIP.INVOLVED_PARTY_QUAL_GID in ('SHIPPER','CONSIGNEE')
+		AND GTIP.GTM_TRANSACTION_GID = :P_GTM_CUSTOMS_ID
+	 ]]>	
+	</sqlStatement>
+	
+	<sqlStatement name="GTM_VID_GROUP_SRCX">
+         <![CDATA[select tag_1 AS SEAL1,tag_3 AS EQUIP_ID,Received_SHIP_UNIT_COUNT AS EQUIP_LEN,su2.refnum_value as SEAL2,su3.refnum_value as SEAL3
+			from shipment_stop_d ssd
+			join s_ship_unit su on su.S_SHIP_UNIT_GID=ssd.S_SHIP_UNIT_GID
+			LEFT join s_ship_unit_refnum su2 on su2.S_SHIP_UNIT_GID=ssd.S_SHIP_UNIT_GID and SU2.S_SHIP_UNIT_REFNUM_QUAL_GID='SCOULAR.CONTAINER SEAL NUMBER 2'
+			LEFT join s_ship_unit_refnum su3 on su3.S_SHIP_UNIT_GID=ssd.S_SHIP_UNIT_GID and SU3.S_SHIP_UNIT_REFNUM_QUAL_GID='SCOULAR.CONTAINER SEAL NUMBER 3'
+			&shipwhereclause and stop_num=1
+	 ]]>	
+	</sqlStatement>
+	
+	<sqlStatement name="GTM_VID_GROUP_SRC">
+         <![CDATA[ select tag_1 AS SEAL1,tag_3 AS EQUIP_ID,Received_SHIP_UNIT_COUNT AS EQUIP_LEN,su2.refnum_value as SEAL2,su3.refnum_value as SEAL3, 
+      (SELECT GTR1.QUANTITY_VALUE
+				FROM GTM_TRANS_LINE_REPORT_QUANTITY GTR1
+				WHERE  GTR1.GTM_TRANSACTION_LINE_GID=GTL.GTM_TRANSACTION_LINE_GID AND GTR1.GTM_PROD_CLASS_TYPE_GID='HTS US' AND GTR1.GTM_QUANTITY_TYPE_GID ='TOTAL GROSS WEIGHT') as WEIGHT,
+       (SELECT GTR1.UOM_CODE
+				FROM GTM_TRANS_LINE_REPORT_QUANTITY GTR1
+				WHERE GTR1.GTM_TRANSACTION_LINE_GID=GTL.GTM_TRANSACTION_LINE_GID AND GTR1.GTM_PROD_CLASS_TYPE_GID='HTS US' AND GTR1.GTM_QUANTITY_TYPE_GID ='TOTAL GROSS WEIGHT') as WEIGHT_UNIT_CODE,
+				(SELECT round(GTR1.CURRENCY_VALUE,0)
+				FROM GTM_TRANS_LINE_CURRENCY GTR1
+				WHERE GTR1.GTM_TRANSACTION_LINE_GID=GTL.GTM_TRANSACTION_LINE_GID AND GTR1.GTM_CURRENCY_TYPE_GID ='TOTAL VALUE') AS LINE_VALUE,
+				(SELECT GTR2.QUANTITY_VALUE
+				FROM GTM_TRANS_LINE_QUANTITY GTR2
+				WHERE GTR2.GTM_TRANSACTION_LINE_GID = GTL.GTM_TRANSACTION_LINE_GID  AND GTR2.GTM_QUANTITY_TYPE_GID = 'SCOULAR/NVO.PIECE COUNT') AS LINE_QTY,
+				(SELECT GTR3.UOM_CODE
+				FROM GTM_TRANS_LINE_QUANTITY GTR3
+				WHERE GTR3.GTM_TRANSACTION_LINE_GID = GTL.GTM_TRANSACTION_LINE_GID  AND GTR3.GTM_QUANTITY_TYPE_GID = 'SCOULAR/NVO.PIECE COUNT') AS LINE_UOM,
+        gtl.line_object_id,CLASSIFICATION_CODE AS CLASS_CODE
+      from shipment_stop_d ssd
+			join s_ship_unit su on su.S_SHIP_UNIT_GID=ssd.S_SHIP_UNIT_GID
+			LEFT join s_ship_unit_refnum su2 on su2.S_SHIP_UNIT_GID=ssd.S_SHIP_UNIT_GID and SU2.S_SHIP_UNIT_REFNUM_QUAL_GID='SCOULAR.CONTAINER SEAL NUMBER 2'
+			LEFT join s_ship_unit_refnum su3 on su3.S_SHIP_UNIT_GID=ssd.S_SHIP_UNIT_GID and SU3.S_SHIP_UNIT_REFNUM_QUAL_GID='SCOULAR.CONTAINER SEAL NUMBER 3'
+			left join gtm_transaction_line gtl on gtl.line_object_id=su.S_SHIP_UNIT_GID
+      LEFT JOIN GTM_TR_PROD_CLASSIFICATION GTP ON GTP.GTM_TRANSACTION_LINE_GID=GTL.GTM_TRANSACTION_LINE_GID
+      LEFT JOIN GTM_PROD_CLASS_CODE GPC ON GPC.GTM_PROD_CLASS_CODE_GID=GTP.GTM_PROD_CLASS_CODE_GID
+      &shipwhereclause and stop_num=1 and gtl.gtm_transaction_gid=:P_GTM_CUSTOMS_ID 
+      
+	 ]]>	
+	</sqlStatement>
+
+			
+	<sqlStatement name="GTM_N10_GROUP_SRC">
+         <![CDATA[ SELECT GTL.GTM_TRANSACTION_LINE_GID,CLASSIFICATION_CODE AS CLASS_CODE,
+				(SELECT GTR1.QUANTITY_VALUE
+				FROM GTM_TRANS_LINE_REPORT_QUANTITY GTR1
+				WHERE  GTR1.GTM_TRANSACTION_LINE_GID=GTL.GTM_TRANSACTION_LINE_GID AND GTR1.GTM_PROD_CLASS_TYPE_GID='HTS US' AND GTR1.GTM_QUANTITY_TYPE_GID ='TOTAL GROSS WEIGHT') as WEIGHT ,
+				(SELECT GTR1.UOM_CODE
+				FROM GTM_TRANS_LINE_REPORT_QUANTITY GTR1
+				WHERE GTR1.GTM_TRANSACTION_LINE_GID=GTL.GTM_TRANSACTION_LINE_GID AND GTR1.GTM_PROD_CLASS_TYPE_GID='HTS US' AND GTR1.GTM_QUANTITY_TYPE_GID ='TOTAL GROSS WEIGHT') as WEIGHT_UNIT_CODE,
+				(SELECT round(GTR1.CURRENCY_VALUE,0)
+				FROM GTM_TRANS_LINE_CURRENCY GTR1
+				WHERE GTR1.GTM_TRANSACTION_LINE_GID=GTL.GTM_TRANSACTION_LINE_GID AND GTR1.GTM_CURRENCY_TYPE_GID ='TOTAL VALUE') AS LINE_VALUE,
+				(SELECT GTR2.QUANTITY_VALUE
+				FROM GTM_TRANS_LINE_QUANTITY GTR2
+				WHERE GTR2.GTM_TRANSACTION_LINE_GID = GTL.GTM_TRANSACTION_LINE_GID  AND GTR2.GTM_QUANTITY_TYPE_GID = 'SCOULAR/NVO.PIECE COUNT') AS LINE_QTY,
+				(SELECT GTR3.UOM_CODE
+				FROM GTM_TRANS_LINE_QUANTITY GTR3
+				WHERE GTR3.GTM_TRANSACTION_LINE_GID = GTL.GTM_TRANSACTION_LINE_GID  AND GTR3.GTM_QUANTITY_TYPE_GID = 'SCOULAR/NVO.PIECE COUNT') AS LINE_UOM
+			 FROM GTM_TRANSACTION GT 
+			 LEFT JOIN GTM_TRANSACTION_LINE GTL ON GTL.GTM_TRANSACTION_GID=GT.GTM_TRANSACTION_GID
+			 LEFT JOIN GTM_TR_PROD_CLASSIFICATION GTP ON GTP.GTM_TRANSACTION_LINE_GID=GTL.GTM_TRANSACTION_LINE_GID
+			 LEFT JOIN GTM_PROD_CLASS_CODE GPC ON GPC.GTM_PROD_CLASS_CODE_GID=GTP.GTM_PROD_CLASS_CODE_GID
+			 WHERE GT.GTM_TRANSACTION_GID=:P_GTM_CUSTOMS_ID 
+                
+	 ]]>	
+	</sqlStatement> 
+
+	<sqlStatement name="GTM_VC_GROUP_SRC">
+         <![CDATA[SELECT GTR.REFNUM_VALUE AS VIN
+		  FROM GTM_TRANSACTION GT
+		  LEFT JOIN GTM_TRANSACTION_LINE GTL ON GTL.GTM_TRANSACTION_GID=GT.GTM_TRANSACTION_GID
+		  LEFT JOIN GTM_TRANSLINE_REFNUM GTR ON GTR.GTM_TRANSACTION_LINE_GID=GTL.GTM_TRANSACTION_LINE_GID 
+		  WHERE GT.GTM_TRANSACTION_GID=:P_GTM_CUSTOMS_ID AND GTM_TRANSLINE_REFNUM_QUAL_GID='VEHICLE IDENTIFICATION NUMBER' 
+	 ]]>	
+	</sqlStatement> 	
+	
+   </dataQuery>
+   <dataTrigger name="BeforeReport" source="AMS_SELECT.BeforeReport"/>
+   <dataTrigger name="BeforeReport2" source="AMS_SELECT.BeforeReport2"/>
+   <dataTrigger name="BeforeReport3" source="AMS_SELECT.BeforeReport3"/>
+   <dataStructure>		
+		<group name="GTM_SHIPMENT" dataType="varchar2" source="GTM_TRANSACTION_SRC">
+			
+			<element name="GTM_SHIPMENT_GID" dataType="varchar2" value="GTM_TRANSACTION_GID"/>
+			<element name="GTM_SHIPMENT_XID" dataType="varchar2" value="GTM_TRANSACTION_XID"/>
+			<element name="DATA_QUERY_TYPE_GID" dataType="varchar2" value="DATA_QUERY_TYPE_GID"/>
+			<element name="OBJECT_ID" dataType="varchar2" value="OBJECT_ID"/>
+			<element name="CARRIER_CODE" dataType="varchar2" value="CARRIER_CODE"/>
+			<element name="CONVEYANCE_NAME" dataType="varchar2" value="CONVEYANCE_NAME"/>
+			<element name="CONVEYANCE_FLAG" dataType="varchar2" value="CONVEYANCE_FLAG"/>
+			<element name="TRANSPORT_MODE_GID" dataType="varchar2" value="TRANSPORT_MODE_GID"/>
+			<element name="X12_TRANSPORT_MODE_CODE" dataType="varchar2" value="X12_FORMAT_CODE"/>			
+			<element name="INCO_TERM_GID" dataType="varchar2" value="INCO_TERM_GID"/>
+			<element name="INCO_TERM_LOCATION" dataType="varchar2" value="INCO_TERM_LOCATION"/>
+			<element name="IS_HAZARDOUS_CARGO" dataType="varchar2" value="IS_HAZARDOUS_CARGO"/>
+			<element name="SHIPMENT_CUSTOMS_STATE" dataType="varchar2" value="SHIPMENT_CUSTOMS_STATE"/>
+			<element name="CUSTOMS_FILING_STATUS" dataType="varchar2" value="CUSTOMS_FILING_STATUS"/>
+			<element name="REPORTING_REFERENCE_NUMBER" dataType="varchar2" value="REPORTING_REFERENCE_NUMBER"/>
+			<element name="INTERCHANGE_DATE" dataType="varchar2" value="INTERCHANGE_DATE"/>
+			<element name="LX_SEQUENCE" dataType="varchar2" value="LX"/>
+									
+			<group name="GTM_SHIPMENT_INVOLVED_PARTY" dataType="varchar2" source="GTM_TRANSACTION_INVOLVED_PARTY_SRC">
+				<element name="INVOLVED_PARTY_QUAL_GID" dataType="varchar2" value="INVOLVED_PARTY_QUAL_GID"/>
+				<element name="CONTACT_GID" dataType="varchar2" value="INVOLVED_PARTY_CONTACT_GID"/>
+				<element name="CONTACT_XID" dataType="varchar2" value="CONTACT_XID"/>
+				<element name="FIRST_NAME" dataType="varchar2" value="FIRST_NAME"/>
+				<element name="LAST_NAME" dataType="varchar2" value="LAST_NAME"/>
+				<element name="MIDDLE_NAME" dataType="varchar2" value="MIDDLE_NAME"/>
+				<element name="PHONE1" dataType="varchar2" value="PHONE1"/>
+				<element name="PHONE2" dataType="varchar2" value="PHONE2"/>
+				<element name="FAX" dataType="varchar2" value="FAX"/>
+				<element name="CELL_PHONE" dataType="varchar2" value="CELL_PHONE"/>
+				<element name="ALTERNATE_NAME" dataType="varchar2" value="ALTERNATE_NAME"/>
+				<element name="COMPANY_NAME" dataType="varchar2" value="COMPANY_NAME"/>
+				<element name="LOCATION_GID" dataType="varchar2" value="LOCATION_GID"/>				
+				<element name="LOCATION_XID" dataType="varchar2" value="LOCATION_XID"/>
+				<element name="LOCATION_NAME" dataType="varchar2" value="LOCATION_NAME"/>
+				<element name="CITY" dataType="varchar2" value="CITY"/>
+				<element name="PROVINCE" dataType="varchar2" value="PROVINCE"/>
+				<element name="PROVINCE_CODE" dataType="varchar2" value="PROVINCE_CODE"/>
+				<element name="POSTAL_CODE" dataType="varchar2" value="POSTAL_CODE"/>
+				<element name="COUNTRY_CODE3_GID" dataType="varchar2" value="COUNTRY_CODE3_GID"/>
+				<element name="COUNTRY_CODE3_XID" dataType="varchar2" value="COUNTRY_CODE3_XID"/>
+				<element name="COUNTRY_CODE2" dataType="varchar2" value="COUNTRY_CODE2"/>
+				<element name="SCAC_GID" dataType="varchar2" value="SCAC_GID"/>
+				<element name="DDTC_REGISTRATION_NUMBER" dataType="varchar2" value="DDTC_REGISTRATION_NUMBER"/>
+				<element name="ELIGIBLE_PARTY_CERTIFICATION" dataType="varchar2" value="ELIGIBLE_PARTY_CERTIFICATION"/>
+				<element name="ACID" dataType="varchar2" value="ACID"/>
+				<element name="EIN" dataType="varchar2" value="EIN"/>
+				<element name="DUNS" dataType="varchar2" value="DUNS"/>
+				<element name="FOREIGN_ENTITY" dataType="varchar2" value="FOREIGN_ENTITY"/>
+				<element name="UTLIMATE_CONSIGNEE_TYPE" dataType="varchar2" value="UTLIMATE_CONSIGNEE_TYPE"/>
+				</group>
+			
+			<group name="GTM_CHARTER_VOYAGE_REFNUM" dataType="varchar2" source="GTM_CHARTER_VOYAGE_REFNUM_SRC">		
+				<element name="CHARTER_VOYAGE_REFNUM_VALUE" dataType="varchar2" value="CHARTER_VOYAGE_REFNUM_VALUE"/>
+			</group>
+			<group name="GTM_MANIFEST_TYPE_CODE" dataType="varchar2" source="GTM_MANIFEST_TYPE_CODE_SRC">		
+				<element name="MANIFEST_TYPE_CODE" dataType="varchar2" value="MANIFEST_TYPE_CODE"/>
+			</group>
+			<group name="OTM_LOCATION" dataType="varchar2" source="OTM_LOCATION_SRC">
+				<element name="SCHEDULE_D_CODE" dataType="varchar2" value="SCHEDULE_D_CODE"/>
+				<element name="SCHEDULE_K_CODE" dataType="varchar2" value="SCHEDULE_K_CODE"/>
+			</group>
+			<group name="OTM_SHIPMENT" dataType="varchar2" source="OTM_SHIPMENT_SRC">
+				<element name="SCAC_GID" dataType="varchar2" value="SCAC_GID"/>
+			</group>
+			<group name="OTM_CONTROL" dataType="varchar2" source="OTM_CONTROL_SRC">
+				<element name="INTNUM" dataType="varchar2" value="INTNUM"/>
+				<element name="TRANNUM" dataType="varchar2" value="TRANNUM"/>
+			</group>
+			<group name="OTM_SHIPMENT_REFNUM" dataType="varchar2" source="OTM_SHIPMENT_REFNUM_SRC">
+				<element name="SHIPMENT_REFNUM_QUAL_QID" dataType="varchar2" value="SHIPMENT_REFNUM_QUAL_GID"/>
+				<element name="SHIPMENT_REFNUM_VALUE" dataType="varchar2" value="SHIPMENT_REFNUM_VALUE"/>
+			</group>
+			<group name="OTM_LOCATION_REFNUM" dataType="varchar2" source="OTM_LOCATION_REFNUM_SRC">
+				<element name="LOCATION_REFNUM_VALUE" dataType="varchar2" value="LOCATION_REFNUM_VALUE"/>
+			</group>
+			<group name="OTM_JOB" dataType="varchar2" source="OTM_JOB_SRC">
+				<element name="JOB_XID" dataType="varchar2" value="JOB_XID"/>
+				<element name="ATTRIBUTE5" dataType="varchar2" value="ATTRIBUTE5"/>
+			</group>
+			<group name="OTM_JOB_REFNUM" dataType="varchar2" source="OTM_JOB_REFNUM_SRC">
+				<element name="JOB_REFNUM_QUAL_GID" dataType="varchar2" value="JOB_REFNUM_QUAL_GID"/>
+				<element name="JOB_REFNUM_VALUE" dataType="varchar2" value="JOB_REFNUM_VALUE"/>
+			</group>
+		    <group name="GTM_CHARTER_VOYAGE" dataType="varchar2" source="GTM_CHARTER_VOYAGE_SRC">		
+				<element name="VOYAGE_NAME" dataType="varchar2" value="VOYAGE_NAME"/>
+			    <element name="ESTIMATED_ARRIVAL_DATE" dataType="varchar2" value="ESTIMATED_ARRIVAL_DATE"/>
+			</group>
+			<group name="GTM_CUSTOMS_REFNUM" dataType="varchar2" source="GTM_CUSTOMS_REFNUM_SRC">		
+				<element name="REFNUM_VALUE" dataType="varchar2" value="REFNUM_VALUE"/>
+			    <element name="GTM_TRANS_REFNUM_QUAL_GID" dataType="varchar2" value="GTM_TRANS_REFNUM_QUAL_GID"/>
+			</group>
+			<group name="GTM_TRANS_REFNUM" dataType="varchar2" source="GTM_TRANS_REFNUM_SRC">		
+				<element name="REFNUM_VALUE" dataType="varchar2" value="REFNUM_VALUE"/>
+			    <element name="GTM_TRANS_REFNUM_QUAL_GID" dataType="varchar2" value="GTM_TRANS_REFNUM_QUAL_GID"/>
+			</group>
+			<group name="GTM_TRANSACTION_QUANTITY" dataType="varchar2" source="GTM_TRANSACTION_QUANTITY_SRC">
+				<element name="GTM_QUANTITY_TYPE_GID" dataType="varchar2" value="GTM_QUANTITY_TYPE_GID"/>
+				<element name="QUANTITY_VALUE" dataType="varchar2" value="QUANTITY_VALUE"/>
+			    <element name="UOM_CODE" dataType="varchar2" value="UOM_CODE"/>
+			</group>
+			<group name="GTM_TRANSACTION_PORT" dataType="varchar2" source="GTM_TRANSACTION_PORT_SRC">		
+				<element name="LOCATION_REFNUM_VALUE" dataType="varchar2" value="LOCATION_REFNUM_VALUE"/>
+				<element name="LOCATION_REFNUM_QUAL_GID" dataType="varchar2" value="LOCATION_REFNUM_QUAL_GID"/>
+			</group>
+			<group name="GTM_LOCATION_REFNUM" dataType="varchar2" source="GTM_LOCATION_REFNUM_SRC">		
+				<element name="LOCATION_REFNUM_VALUE" dataType="varchar2" value="LOCATION_REFNUM_VALUE"/>
+				<element name="LOCATION_REFNUM_QUAL_GID" dataType="varchar2" value="LOCATION_REFNUM_QUAL_GID"/>
+			</group>
+			<group name="GTM_TRANSACTION_REMARK" dataType="varchar2" source="GTM_TRANSACTION_REMARK_SRC">		
+				<element name="REMARK_TEXT" dataType="varchar2" value="REMARK_TEXT"/>
+			</group>
+			<group name="QUOTE_REFNUM" dataType="varchar2" source="QUOTE_REFNUM_SRC">		
+				<element name="QUOTE_REFNUM_VALUE" dataType="varchar2" value="QUOTE_REFNUM_VALUE"/>
+			</group>
+				<group name="GTM_N1_GROUP" dataType="varchar2" source="GTM_N1_GROUP_SRC">		
+					<element name="INVOLVED_PARTY_QUAL_GID" dataType="varchar2" value="INVOLVED_PARTY_QUAL_GID"/>
+					<element name="COMPANY_NAME" dataType="varchar2" value="COMPANY_NAME"/>
+					<element name="ADDLINE1" dataType="varchar2" value="ADDLINE1"/>
+					<element name="ADDLINE2" dataType="varchar2" value="ADDLINE2"/>
+					<element name="CITY" dataType="varchar2" value="CITY"/>
+					<element name="PROVINCE" dataType="varchar2" value="PROVINCE"/>
+					<element name="PROVINCE_CODE" dataType="varchar2" value="PROVINCE_CODE"/>
+					<element name="POSTAL_CODE" dataType="varchar2" value="POSTAL_CODE"/>
+					<element name="COUNTRY_CODE3_GID" dataType="varchar2" value="COUNTRY_CODE3_GID"/>
+					<element name="COUNTRY_CODE3_XID" dataType="varchar2" value="COUNTRY_CODE3_XID"/>
+					<element name="COUNTRY_CODE2" dataType="varchar2" value="COUNTRY_CODE2"/>
+				</group>
+				<group name="GTM_VID_GROUP" dataType="varchar2" source="GTM_VID_GROUP_SRC">		
+					<element name="SEAL1" dataType="varchar2" value="SEAL1"/>
+					<element name="SEAL2" dataType="varchar2" value="SEAL2"/>
+					<element name="EQUIP_LEN" dataType="varchar2" value="EQUIP_LEN"/>
+					<element name="EQUIP_ID" dataType="varchar2" value="EQUIP_ID"/>
+					<element name="CLASS_CODE" dataType="varchar2" value="CLASS_CODE"/>	
+					<element name="WEIGHT" dataType="varchar2" value="WEIGHT"/>	
+					<element name="WEIGHT_UNIT_CODE" dataType="varchar2" value="WEIGHT_UNIT_CODE"/>	
+					<element name="LINE_VALUE" dataType="varchar2" value="LINE_VALUE"/>	
+					<element name="LINE_QTY" dataType="varchar2" value="LINE_QTY"/>
+					<element name="LINE_UOM" dataType="varchar2" value="LINE_UOM"/>
+				</group>
+					<group name="GTM_N10_GROUP" dataType="varchar2" source="GTM_N10_GROUP_SRC">		
+						<element name="CLASS_CODE" dataType="varchar2" value="CLASS_CODE"/>	
+						<element name="WEIGHT" dataType="varchar2" value="WEIGHT"/>	
+						<element name="WEIGHT_UNIT_CODE" dataType="varchar2" value="WEIGHT_UNIT_CODE"/>	
+						<element name="LINE_VALUE" dataType="varchar2" value="LINE_VALUE"/>	
+						<element name="LINE_QTY" dataType="varchar2" value="LINE_QTY"/>
+						<element name="LINE_UOM" dataType="varchar2" value="LINE_UOM"/>
+					</group>
+				<group name="GTM_VC_GROUP" dataType="varchar2" source="GTM_VC_GROUP_SRC">		
+					<element name="VIN" dataType="varchar2" value="VIN"/>
+				</group>
+				
+		</group>			
+   </dataStructure>
+   
+</dataTemplate>
